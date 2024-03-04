@@ -1,0 +1,139 @@
+version: "3.7"
+
+services:
+  pia_transmission:
+    image: haugene/transmission-openvpn
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - "/dev/net/tun"
+    container_name: pia_transmission
+    restart: always
+    ports:
+      - "9091:9091" #transmission
+      - "8888:8888"
+      - "8989:8989" #sonarr
+      - "9117:9117" #jackett
+      - "7878:7878" #radarr
+      - "8686:8686" #lidarr
+      - "8787:8787" #readarr
+      - "9696:9696" #prowlarr
+      - "5055:5055" #overseerr
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    networks:
+      - media_server
+    env_file:
+      - .env_openvpn
+    volumes:
+      - /mnt/hdd/opt/transmission:/data/transmission-home
+      - /mnt/hdd/media/content/downloads:/data
+
+  jackett:
+    image: linuxserver/jackett
+    container_name: jackett
+    depends_on:
+      - pia_transmission
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - /mnt/hdd/opt/jackett/:/config
+      - /mnt/hdd/media/content/downloads/watch/:/downloads
+      - /etc/localtime:/etc/localtime:ro
+    network_mode: "service:pia_transmission"
+
+  sonarr:
+    image: linuxserver/sonarr
+    container_name: sonarr
+    volumes:
+      - /mnt/hdd/opt/sonarr/:/config
+      - /mnt/hdd/media/content/TV/:/tv
+      - /mnt/hdd/media/content/downloads/completed:/data/completed
+      - /etc/localtime:/etc/localtime:ro
+    env_file:
+      - .env
+    restart: unless-stopped
+    network_mode: "service:pia_transmission"
+
+  radarr:
+    image: linuxserver/radarr
+    container_name: radarr
+    volumes:
+      - /mnt/hdd/opt/radarr:/config
+      - /mnt/hdd/media/content/Movies:/movies
+      - /mnt/hdd/media/content/downloads/completed:/data/completed
+      - /etc/localtime:/etc/localtime:ro
+    env_file:
+      - .env
+    restart: unless-stopped
+    network_mode: "service:pia_transmission"
+
+  lidarr:
+    image: linuxserver/lidarr
+    container_name: lidarr
+    volumes:
+      - /mnt/hdd/opt/lidarr/:/config
+      - /mnt/hdd/media/content/Music/:/music
+      - /mnt/hdd/media/content/downloads/completed:/data/completed
+      - /etc/localtime:/etc/localtime:ro
+    env_file:
+      - .env
+    restart: unless-stopped
+    network_mode: "service:pia_transmission"
+
+  overseerr:
+    image: lscr.io/linuxserver/overseerr:latest
+    container_name: overseerr
+    env_file:
+      - .env
+    volumes:
+      - /opt/overseerr/:/config
+    restart: unless-stopped
+    network_mode: "service:pia_transmission"
+
+  readarr:
+    image: ghcr.io/linuxserver/readarr:nightly
+    container_name: readarr
+    volumes:
+      - /mnt/hdd/opt/readarr/:/config
+      - /mnt/hdd/media/content/Books/:/books
+      - /mnt/hdd/media/content/downloads/completed:/data/completed
+      - /etc/localtime:/etc/localtime:ro
+    env_file:
+      - .env
+    restart: unless-stopped
+    network_mode: "service:pia_transmission"
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:nightly
+    container_name: prowlarr
+    depends_on:
+      - pia_transmission
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - /mnt/hdd/opt/prowlarr/:/config
+    network_mode: "service:pia_transmission"
+
+  plex:
+    image: lscr.io/linuxserver/plex:latest
+    container_name: plex
+    network_mode: host
+    env_file:
+      - .env
+    volumes:
+      - /mnt/hdd/opt/plex:/config
+      - /mnt/hdd/media/content/TV:/tv
+      - /mnt/hdd/media/content/Movies:/movies
+      - /mnt/hdd/media/content/Music/:/music
+      - /mnt/hdd/media/content/Books/:/books
+      - /mnt/hdd/media/content/Photos/:/photos
+      - /mnt/hdd/media/content/Other/:/other
+    restart: unless-stopped
+
+networks:
+  media_server:
+    driver: bridge
